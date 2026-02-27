@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EaseMyGST Support Chatbot</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --primary: #1a3c6e;
+  --accent:  #f97316;
+  --cyan:    #06b6d4;
+  --green:   #10b981;
+  --red:     #ef4444;
+  --amber:   #f59e0b;
+  --bg:      #eef2f9;
+  --card:    #ffffff;
+  --text:    #1e293b;
+  --muted:   #64748b;
+  --border:  #e2e8f0;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  background-image:
+    radial-gradient(ellipse at 10% 10%, #dbeafe55 0%, transparent 60%),
+    radial-gradient(ellipse at 90% 90%, #fed7aa33 0%, transparent 60%);
+}
+
+/* ── LAUNCHER ── */
+#launcher {
+  position: fixed; bottom: 24px; right: 24px;
+  width: 62px; height: 62px;
+  background: linear-gradient(135deg, #1a3c6e, #2563eb);
+  border-radius: 50%; cursor: pointer;
+  box-shadow: 0 4px 20px rgba(26,60,110,.5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; z-index: 9998;
+  animation: popIn .4s cubic-bezier(.175,.885,.32,1.275);
+  transition: transform .2s;
+}
+#launcher:hover { transform: scale(1.1); }
+@keyframes popIn { from{transform:scale(0);opacity:0} to{transform:scale(1);opacity:1} }
+
+/* ── CHAT WINDOW ── */
+#chatWin {
+  position: fixed; bottom: 100px; right: 24px;
+  width: 420px; max-width: calc(100vw - 32px);
+  height: 680px; max-height: calc(100vh - 120px);
+  background: var(--card);
+  border-radius: 22px;
+  box-shadow: 0 8px 40px rgba(26,60,110,.18), 0 0 0 1px var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  z-index: 9999;
+  transform: scale(0.9) translateY(20px);
+  opacity: 0; pointer-events: none;
+  transform-origin: bottom right;
+  transition: all .25s cubic-bezier(.175,.885,.32,1.275);
+}
+#chatWin.open {
+  transform: scale(1) translateY(0);
+  opacity: 1; pointer-events: all;
+}
+#chat-scroll {
+  flex: 1; overflow-y: auto;
+  display: flex; flex-direction: column;
+  min-height: 0;
+}
+#chat-scroll::-webkit-scrollbar { width: 4px; }
+#chat-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* ── HEADER ── */
+.hdr {
+  background: linear-gradient(135deg, #1a3c6e 0%, #2563eb 100%);
+  padding: 14px 16px;
+  display: flex; align-items: center; gap: 11px;
+  flex-shrink: 0; position: relative; overflow: hidden;
+}
+.hdr::after { content:''; position:absolute; right:-30px; top:-30px; width:110px; height:110px; border-radius:50%; background:rgba(255,255,255,0.06); }
+.hdr-ico { width:42px; height:42px; background:var(--accent); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; box-shadow:0 3px 10px rgba(249,115,22,.45); }
+.hdr h2  { color:#fff; font-size:14px; font-weight:700; }
+.hdr p   { color:#93c5fd; font-size:11px; display:flex; align-items:center; gap:4px; margin-top:2px; }
+.dot { width:6px; height:6px; background:#4ade80; border-radius:50%; animation:blink 2s infinite; }
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.hdr-close { margin-left:auto; background:rgba(255,255,255,.15); border:none; color:#fff; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; z-index:1; flex-shrink:0; }
+.hdr-close:hover { background:rgba(255,255,255,.28); }
+
+/* ── MESSAGES ── */
+#msgs {
+  padding: 14px 13px 8px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+.msg { display:flex; gap:8px; animation:up .25s ease; }
+@keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.msg.u { flex-direction:row-reverse; }
+.av { width:28px; height:28px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+.msg.b .av { background:var(--primary); color:#fff; }
+.msg.u .av { background:var(--accent);  color:#fff; }
+.bub { max-width:83%; padding:9px 13px; border-radius:15px; font-size:13.5px; line-height:1.55; }
+.msg.b .bub { background:#eef2ff; color:var(--text); border-bottom-left-radius:3px; }
+.msg.u .bub { background:var(--accent); color:#fff; border-bottom-right-radius:3px; }
+.bub b { font-weight:700; }
+.bub a { color:#1d4ed8; font-weight:600; text-decoration:underline; }
+
+/* ── DYNAMIC AREA ── */
+#dyn { flex-shrink: 0; }
+
+/* ── OPTION BUTTONS ── */
+.opt-row { display:flex; flex-wrap:wrap; gap:7px; padding:4px 13px 12px; }
+.obtn { background:#fff; border:1.5px solid var(--primary); color:var(--primary); border-radius:20px; padding:7px 14px; font-size:13px; font-family:inherit; font-weight:600; cursor:pointer; transition:all .18s; white-space:nowrap; }
+.obtn:hover { background:var(--primary); color:#fff; transform:translateY(-1px); }
+.obtn.green { border-color:var(--green); color:var(--green); }
+.obtn.green:hover { background:var(--green); color:#fff; }
+.obtn.amber { border-color:var(--amber); color:var(--amber); }
+.obtn.amber:hover { background:var(--amber); color:#fff; }
+.obtn.red   { border-color:var(--red); color:var(--red); }
+.obtn.red:hover { background:var(--red); color:#fff; }
+
+/* ── MULTI-SELECT ── */
+.ms-wrap { padding:4px 13px 10px; }
+.ms-hint { font-size:12px; color:var(--muted); font-style:italic; background:#f8fafc; border-left:3px solid var(--cyan); border-radius:7px; padding:6px 10px; margin-bottom:8px; }
+.ms-grid { display:flex; flex-direction:column; gap:5px; max-height:200px; overflow-y:auto; margin-bottom:10px; padding-right:2px; }
+.ms-grid::-webkit-scrollbar { width:3px; }
+.ms-grid::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+.ms-btn { background:#f8fafc; border:1.5px solid #cbd5e1; color:var(--text); border-radius:10px; padding:8px 12px; font-size:13px; font-family:inherit; font-weight:500; cursor:pointer; transition:all .16s; display:flex; align-items:center; gap:8px; text-align:left; width:100%; }
+.ms-btn:hover { border-color:var(--primary); background:#eef2ff; }
+.ms-btn.sel   { background:var(--primary); border-color:var(--primary); color:#fff; }
+.ms-btn .chk  { font-size:15px; flex-shrink:0; }
+.ms-btn .ico  { font-size:15px; flex-shrink:0; }
+.ms-actions   { display:flex; gap:8px; }
+.ms-back { flex:1; background:#fff; border:1.5px solid #94a3b8; color:var(--muted); border-radius:11px; padding:9px; font-size:13px; font-family:inherit; font-weight:600; cursor:pointer; transition:all .18s; }
+.ms-back:hover { border-color:var(--accent); color:var(--accent); }
+.ms-confirm { flex:2; background:#cbd5e1; color:#fff; border:none; border-radius:11px; padding:9px; font-size:14px; font-weight:700; font-family:inherit; cursor:not-allowed; transition:all .2s; }
+.ms-confirm.on { background:linear-gradient(135deg,#1a3c6e,#2563eb); cursor:pointer; box-shadow:0 4px 14px rgba(26,60,110,.3); }
+.ms-confirm.on:hover { transform:translateY(-1px); }
+
+/* ── SOLUTION BOX ── */
+.sol-scroller { padding:2px 13px 8px; max-height:240px; overflow-y:auto; }
+.sol-scroller::-webkit-scrollbar { width:3px; }
+.sol-scroller::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+.sol-box { background:#eff6ff; border-left:3px solid var(--cyan); border-radius:10px; padding:10px 12px; margin-bottom:8px; }
+.sol-box .stitle { font-weight:700; color:var(--primary); font-size:11.5px; text-transform:uppercase; letter-spacing:.4px; margin-bottom:6px; }
+.sol-box ul { padding-left:16px; }
+.sol-box ul li { margin-bottom:5px; font-size:13px; line-height:1.55; }
+.sol-box ul li a { color:#1d4ed8; font-weight:700; }
+
+/* ── ESCALATION ── */
+.esc-banner { background:linear-gradient(135deg,#fef3c7,#fde68a); border:1.5px solid var(--amber); border-radius:12px; padding:12px 14px; margin:4px 13px 10px; }
+.esc-banner .etitle { font-weight:700; color:#92400e; margin-bottom:6px; font-size:14px; }
+.esc-banner p { color:#78350f; line-height:1.65; font-size:13px; }
+.ticket-section {
+  margin: 6px 13px 12px;
+  background: linear-gradient(135deg, #f0f7ff, #e8f4ff);
+  border: 2px solid #2563eb;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(26,60,110,.15);
+}
+.ticket-section-hdr {
+  background: linear-gradient(135deg, #1a3c6e, #2563eb);
+  padding: 10px 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.ticket-section-hdr span { color: #fff; font-size: 14px; font-weight: 700; }
+.ticket-section-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.ticket-section-body p { font-size: 12.5px; color: var(--muted); margin-bottom: 2px; }
+.ticket-link-btn {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px; border-radius: 12px; font-size: 13.5px; font-weight: 700;
+  font-family: inherit; cursor: pointer; text-decoration: none;
+  transition: all .2s; width: 100%; border: none;
+}
+.ticket-link-btn.blue {
+  background: linear-gradient(135deg, #1a3c6e, #2563eb);
+  color: #fff; box-shadow: 0 3px 12px rgba(26,60,110,.3);
+}
+.ticket-link-btn.blue:hover { transform: translateY(-1px); box-shadow: 0 5px 16px rgba(26,60,110,.4); }
+.ticket-link-btn.orange {
+  background: #fff; border: 2px solid #f97316 !important;
+  color: #f97316;
+}
+.ticket-link-btn.orange:hover { background: #fff7ed; transform: translateY(-1px); }
+.ticket-link-btn .btn-ico { font-size: 18px; flex-shrink: 0; }
+.ticket-link-btn .btn-text { display: flex; flex-direction: column; text-align: left; }
+.ticket-link-btn .btn-label { font-size: 13px; font-weight: 700; line-height: 1.2; }
+.ticket-link-btn .btn-sub { font-size: 11px; font-weight: 400; opacity: .8; margin-top: 1px; }
+
+/* ── INPUT BAR ── */
+.bottom-bar { flex-shrink: 0; background: #fafbff; border-top: 1px solid var(--border); }
+.kw-tip { padding:5px 13px 4px; font-size:12px; color:var(--muted); display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+.kw-pill { background:#fef9c3; border-radius:6px; padding:1px 7px; font-weight:700; color:#92400e; font-family:'Space Mono',monospace; font-size:11px; }
+.input-bar { padding:8px 13px 10px; display:flex; gap:8px; align-items:center; }
+#txtIn { flex:1; border:1.5px solid var(--border); border-radius:20px; padding:9px 15px; font-size:13.5px; font-family:inherit; outline:none; background:#fff; color:var(--text); transition:border .2s; }
+#txtIn:focus { border-color:var(--primary); }
+#sndBtn { width:37px; height:37px; background:var(--primary); border:none; border-radius:50%; color:#fff; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:15px; transition:all .2s; }
+#sndBtn:hover { background:#2563eb; transform:scale(1.08); }
+
+/* ── KEYWORD SEARCH RESULTS ── */
+.kw-results { padding: 4px 13px 10px; }
+.kw-match-btn { width: 100%; background: #f8fafc; border: 1.5px solid #cbd5e1; color: var(--text); border-radius: 10px; padding: 9px 12px; font-size: 13px; font-family: inherit; font-weight: 500; cursor: pointer; transition: all .16s; display: flex; align-items: center; gap: 8px; text-align: left; margin-bottom: 5px; }
+.kw-match-btn:hover { border-color: var(--primary); background: #eef2ff; }
+.kw-match-btn .kw-cat-tag { font-size: 10px; font-weight: 700; background: var(--primary); color: #fff; border-radius: 5px; padding: 1px 6px; flex-shrink: 0; margin-left: auto; }
+
+/* ── TYPING ── */
+.typing { display:flex; gap:4px; align-items:center; padding:10px 13px; background:#eef2ff; border-radius:15px; border-bottom-left-radius:3px; width:fit-content; }
+.typing span { width:7px; height:7px; border-radius:50%; background:var(--primary); animation:bounce 1.2s infinite; }
+.typing span:nth-child(2){animation-delay:.2s}
+.typing span:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+</style>
+</head>
+<body>
+
+<!-- Launcher -->
+<div id="launcher" onclick="toggleChat()">&#129302;</div>
+
+<!-- Chat Window -->
+<div id="chatWin">
+  <div class="hdr">
+    <div class="hdr-ico">&#129302;</div>
+    <div>
+      <h2>EaseMyGST Support</h2>
+      <p><span class="dot"></span> Online &bull; Instant assistance</p>
+    </div>
+    <button class="hdr-close" onclick="toggleChat()">&#10005;</button>
+  </div>
+  <div id="chat-scroll">
+    <div id="msgs"></div>
+    <div id="dyn"></div>
+  </div>
+  <div class="bottom-bar">
+    <div class="kw-tip">&#128161; Try typing: <span class="kw-pill">HSN</span> <span class="kw-pill">GSTIN</span> <span class="kw-pill">OTP</span> <span class="kw-pill">password</span> <span class="kw-pill">pincode</span></div>
+    <div class="input-bar">
+      <input type="text" id="txtIn" placeholder='🔍 Type a keyword to search issues...' />
+      <button id="sndBtn">&#10148;</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+
+var msgsEl = document.getElementById('msgs');
+var dynEl  = document.getElementById('dyn');
+var scrollEl = document.getElementById('chat-scroll');
+var txtIn  = document.getElementById('txtIn');
+var sndBtn = document.getElementById('sndBtn');
+var chatWin= document.getElementById('chatWin');
+
+var S = { category:'', selectedIssues:[], awaitingKW:false, userMobile:'' };
+// ── SOLUTIONS ──
+var SOL = {
+  einvoice: {
+    'HSN Code Invalid': {
+      ico:'&#128258;',
+      steps:[
+        'HSN code entered is invalid or not recognized by the IRP portal.',
+        '&#9989; Verify your HSN code should be valid from this link: <a href="https://einvoice1.gst.gov.in/Others/MasterCodes" target="_blank">HSN Master Codes &rarr;</a>',
+        'HSN must be 4, 6, or 8 digits based on your annual turnover.',
+        'Update the correct HSN in all invoice line items and retry on <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a>'
+      ]
+    },
+    'Supplier / Buyer GSTIN Invalid': {
+      ico:'&#127970;',
+      steps:[
+        'Verify GSTIN validity from <a href="https://www.gst.gov.in" target="_blank">gst.gov.in &rarr;</a>.',
+        'If GSTIN is valid on GST Portal, additionally check Buyer GSTIN using this link: <a href="https://einvoice1.gst.gov.in/Others/TaxpayerSearch" target="_blank">Taxpayer Search &rarr;</a>',
+        'GSTIN must be exactly 15 characters (e.g. 27AABCU9603R1ZX).',
+        'Retry after verifying on <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a>'
+      ]
+    },
+    'Duplicate E-Invoice Error': {
+      ico:'&#128257;',
+      steps:[
+        'E-Invoice is already generated for this invoice number.',
+        'Check if your E-Invoice PDF is generated from the <b>Reports</b> option in EaseMyGST.',
+        'This is just a <b>warning message</b> &mdash; please ignore it.',
+        'If PDF is available in Reports, your E-Invoice is successfully generated. No action needed.'
+      ]
+    },
+    'Incorrect Password': {
+      ico:'&#128274;',
+      steps:[
+        'Your GSP password has been <b>changed or expired</b>.',
+        'Step 1: Update your password on the GSP portal: <a href="https://ewaybillgst.gov.in/Login.aspx" target="_blank">ewaybillgst.gov.in &rarr;</a>',
+        'Step 2: After updating, also update the new password in <b>EaseMyGST Org Master</b>.',
+        'Login to <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a> and update credentials under Org Master settings.'
+      ]
+    },
+    'Unable to Login to EaseMyGST': {
+      ico:'&#128513;',
+      steps:[
+        'Verify your login details (username and password) are correct.',
+        'If you forgot your password, click the <b>"Forgot Password"</b> button on the login page.',
+        'Login here: <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST Login &rarr;</a>',
+        'If issue persists after password reset, raise a ticket at <a href="https://care.ginesys.in/s/login/" target="_blank">care.ginesys.in &rarr;</a> or email <a href="mailto:support@easemygst.com">support@easemygst.com</a>'
+      ]
+    },
+    'Invoice No More Than 16 Digits': {
+      ico:'&#128290;',
+      steps:[
+        'Your invoice number length is <b>more than 16 digits</b> which exceeds the IRP limit.',
+        'Kindly check your invoice number length in your ERP system.',
+        'Convert the invoice number to <b>16 digits or less</b> in your ERP.',
+        'Re-generate the E-Invoice from <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a> after updating.'
+      ]
+    },
+    'Pincode Does Not Match State Code': {
+      ico:'&#128205;',
+      steps:[
+        'Supplier or Buyer pincode and state are different &mdash; they must match.',
+        'To fix: Click <b>Edit Button &rarr; Invoice Details &rarr; Bill From Details</b> (your details) and verify pincode matches your state.',
+        'Also check <b>Bill To Details</b> (Buyer details) &mdash; ensure buyer pincode matches buyer state.',
+        'Update and re-generate on <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a>'
+      ]
+    },
+    'Ship To Pincode / Address Missing': {
+      ico:'&#128230;',
+      steps:[
+        'The <b>Dispatch to Details</b> section has incomplete information.',
+        'Verify all details in the "Dispatch to Details" section are filled:',
+        'Required fields: <b>Name, Address, City, Pincode, State</b> &mdash; all are mandatory.',
+        'Edit the invoice on <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a>, fill all Dispatch to Details, and retry.'
+      ]
+    },
+    'Address More Than 100 Characters': {
+      ico:'&#128196;',
+      steps:[
+        'Address field exceeds the <b>100 character limit</b> allowed by IRP.',
+        'Check Address 1 field via <b>Edit Button &rarr; Invoice Details &rarr; Bill From Details</b>.',
+        'Also check <b>Bill To Details</b> (Buyer details) for address length.',
+        'If address is more than 100 characters, add the first half in <b>Address 1</b> and the remaining in <b>Address 2</b>.'
+      ]
+    },
+    'API End Point Error': {
+      ico:'&#9881;',
+      steps:[
+        'The GSTIN you are using is <b>not registered</b> on EaseMyGST.',
+        'Verify that the GSTIN used for E-Invoice generation is registered and active in your EaseMyGST account.',
+        'Login and check your GSTIN configuration at <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a>',
+        'If GSTIN needs to be added, raise a ticket at <a href="https://care.ginesys.in/s/login/" target="_blank">care.ginesys.in &rarr;</a> or email <a href="mailto:support@easemygst.com">support@easemygst.com</a>'
+      ]
+    },
+    'Supplier PIN Code Cannot Be 999999': {
+      ico:'&#128203;',
+      steps:[
+        'Corrected PIN code should be passed under Supplier Details &mdash; 999999 is not a valid PIN.',
+        'Update the correct PIN code of the supplier.',
+        'For valid PIN codes, visit <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a> portal under <b>Search &rarr; PIN Code Search</b>.',
+        'Update Supplier details and retry E-Invoice generation.'
+      ]
+    },
+    'Invoice Not Visible in E-Invoice Generator': {
+      ico:'&#128269;',
+      steps:[
+        'The invoice is not showing in the E-Invoice Generator on EaseMyGST.',
+        'This is usually caused by a <b>missing or incorrect Customer GSTIN</b> on the invoice.',
+        'In <b>Ginesys ERP</b>, open the invoice and check the Customer GSTIN using the <b>"Side Panel"</b> option.',
+        'Verify and update the correct Customer GSTIN in the Side Panel, save the invoice, and then retry generating the E-Invoice from <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a>'
+      ]
+    },
+    'Cancel IRN': {
+      ico:'&#10060;',
+      steps:[
+        'IRN can <b>only be cancelled within 24 hours</b> of generation.',
+        'Go to <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a> &rarr; E-Invoice &rarr; Cancel IRN &rarr; Enter IRN and select reason.',
+        'If an E-Way Bill is linked to this IRN, <b>cancel the EWB first</b>, then cancel the IRN.',
+        'After 24 hours, IRN <b>cannot be cancelled</b> &mdash; issue a Credit Note instead.'
+      ]
+    },
+    'Invoice Date More Than 30 Days': {
+      ico:'&#128197;',
+      steps:[
+        'Invoice date is more than <b>30 days old</b> &mdash; IRP does not allow E-Invoice generation for such invoices.',
+        'E-Invoice must be generated on or before 30 days from the invoice date.',
+        'For invoices older than 30 days, you will need to create a <b>new invoice</b> with the current date.',
+        '<b>Or</b>, change the invoice date in your ERP to a date <b>within the last 30 days</b> (current date recommended), then retry generating the E-Invoice from <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a>'
+      ]
+    }
+  },
+
+  ewaybill: {
+    'Invalid JSON / HSN Non-GST': {
+      ico:'&#128203;',
+      steps:[
+        'One of the line items in your JSON has <b>"Non-GST"</b> entered as the HSN code field.',
+        'Verify all HSN code fields in every line item &mdash; "Non-GST" is not a valid HSN.',
+        '&#9989; Verify valid HSN codes here: <a href="https://einvoice1.gst.gov.in/Others/MasterCodes" target="_blank">HSN Master Codes &rarr;</a>',
+        'Replace "Non-GST" with the correct numeric HSN code and re-generate on <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a>'
+      ]
+    },
+    'Transporter ID Invalid': {
+      ico:'&#128667;',
+      steps:[
+        'The Transporter ID entered is not valid or not registered on the EWB portal.',
+        '&#9989; Verify if Transporter ID is valid or registered from: <a href="https://ewaybillgst.gov.in/Others/TransportersSearch.aspx" target="_blank">Transporter Search &rarr;</a>',
+        'If transporter is unregistered, use their NIC-issued 15-digit Transporter ID.',
+        'Update the correct Transporter ID on <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a> and retry.'
+      ]
+    },
+    'Cancel E-Way Bill': {
+      ico:'&#128465;',
+      steps:[
+        'Cancel E-Way Bill <b>before 24 hours</b> of generation.',
+        'If the 24-hour limit has passed, you will be <b>unable to cancel</b> the E-Way Bill.',
+        'To cancel within 24 hours: go to <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a> &rarr; E-Way Bill &rarr; Cancel.',
+        'If cancellation window has expired, raise a ticket at <a href="https://care.ginesys.in/s/login/" target="_blank">care.ginesys.in &rarr;</a> or email <a href="mailto:support@easemygst.com">support@easemygst.com</a>'
+      ]
+    },
+    'Distance Between Pincodes Too High': {
+      ico:'&#128739;',
+      steps:[
+        'The distance between Supplier pincode and Buyer pincode is too high as per NIC.',
+        '&#9989; Check distance between supplier pincode &amp; buyer pincode using: <a href="https://einvoice1.gst.gov.in/Others/GetPinCodeDistance" target="_blank">Pincode Distance Tool &rarr;</a>',
+        'Verify and correct the Supplier and Buyer pincode on the E-Way Bill.',
+        'Update correct pincodes on <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a> and retry generation.'
+      ]
+    },
+    'Transport Document Number Missing (Air/Rail)': {
+      ico:'&#9992;',
+      steps:[
+        'For transport modes <b>Air</b> and <b>Rail</b>, Transport Document Number is mandatory.',
+        'Check in the EWB section on <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a> if the Transport Document Number is added.',
+        'If Transport Document Number is added, also ensure <b>Date, Mode, and Type of Cargo</b> details are filled.',
+        'All four fields must be completed together: Document No, Date, Mode, Type of Cargo.'
+      ]
+    },
+    'Vehicle Mode Must Be Road': {
+      ico:'&#128739;',
+      steps:[
+        'When adding a vehicle number, Transport Mode <b>must be set to "Road"</b>.',
+        'For Rail / Air / Ship, vehicle number is not required &mdash; only Road mode uses vehicle entry.',
+        'Vehicle number format: MH12AB1234 (no spaces or special characters).',
+        'Update on <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a> E-Way Bill &rarr; Update Vehicle.'
+      ]
+    },
+    'E-Way Bill Not Generated': {
+      ico:'&#128230;',
+      steps:[
+        'Check if invoice value exceeds Rs.50,000 (mandatory EWB threshold).',
+        'Both Supplier and Recipient GSTINs must be valid and active.',
+        'Verify all mandatory fields: Invoice No, Date, GSTIN, HSN, Value.',
+        'Retry on <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a> after verifying all details.'
+      ]
+    },
+    'Invoice Not Visible in E-Way Bill Generator': {
+      ico:'&#128269;',
+      steps:[
+        'The invoice is not appearing in the E-Way Bill Generator in EaseMyGST.',
+        'For <b>direct E-Way Bill generation from Ginesys ERP</b>, the invoice must first be <b>tagged in the LR (Lorry Receipt)</b>.',
+        'Go to Ginesys ERP &rarr; open the LR &rarr; tag the invoice to the LR.',
+        'Once the invoice is tagged in the LR, it will become visible in the E-Way Bill Generator on <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a>'
+      ]
+    },
+    'E-Way Bill Already Generated for this IRN': {
+      ico:'&#128257;',
+      steps:[
+        'An E-Way Bill is <b>already generated</b> for this invoice number/IRN.',
+        'Go to <a href="https://easemygst.taxilla.com/" target="_blank">EaseMyGST &rarr;</a> and verify the existing E-Way Bill under the same invoice number.',
+        'If EWB is already generated and valid, <b>no action is needed</b> &mdash; use the existing EWB.',
+        'If you need to update details, use the <b>Update Vehicle/Part-B</b> option instead of regenerating.'
+      ]
+    }
+  },
+
+  gstreturns: {
+    'OTP Not Receiving': {
+      ico:'&#128241;',
+      steps:[
+        '<b>Manage API Access</b> should be set to <b>YES</b> on the GST Portal.',
+        'Login to GST Portal &rarr; My Profile &rarr; Manage API Access &rarr; Set to YES.',
+        'Also validate GSTIN details on <a href="https://portal.easemygst.com/" target="_blank">EaseMyGST Returns Portal &rarr;</a>',
+        'After enabling, retry OTP generation. Also check mobile number on GST Portal is correct and not on DND.'
+      ]
+    },
+    'Structural Error Duplicate Invoice': {
+      ico:'&#128202;',
+      steps:[
+        'Duplicate invoices in your data are causing a structural error.',
+        'Perform <b>sorting</b> on these columns in this order:',
+        '<b>1. GSTIN of Taxpayer &rarr; 2. Counterparty GSTIN &rarr; 3. Voucher Number &rarr; 4. Invoice Document Number</b>',
+        'Remove duplicate entries after sorting and re-upload on <a href="https://portal.easemygst.com/" target="_blank">EaseMyGST Returns Portal &rarr;</a>'
+      ]
+    },
+    'Invalid HSN': {
+      ico:'&#128258;',
+      steps:[
+        'One or more HSN codes in your return data are invalid.',
+        'Verify the HSN code or check the <b>length of HSN code</b> using: <a href="https://ginesys.sapphire-portal.easemygst.com/#/bulksearch" target="_blank">Bulk HSN Search &rarr;</a>',
+        'Correct all invalid HSN codes in your data sheet.',
+        'Re-upload the corrected file on <a href="https://portal.easemygst.com/" target="_blank">EaseMyGST Returns Portal &rarr;</a>'
+      ]
+    },
+    'Invalid POS (Place of Supply)': {
+      ico:'&#128205;',
+      steps:[
+        'Verify the <b>Place of Supply (POS)</b> for the given transaction.',
+        'POS should be correct as per the GSTIN of the party.',
+        'POS codes are 2-digit state codes (e.g. 27 for Maharashtra, 07 for Delhi).',
+        'Correct the POS and re-upload on <a href="https://portal.easemygst.com/" target="_blank">EaseMyGST Returns Portal &rarr;</a>'
+      ]
+    },
+    'Tax Invalid / Tax Mismatch': {
+      ico:'&#128176;',
+      steps:[
+        'Tax Applicability should be <b>T / N / L</b> as per the given transactions.',
+        'Also check: if POS is <b>same state as supplier</b> &rarr; use CGST + SGST.',
+        'If POS is <b>different state from supplier</b> &rarr; use IGST.',
+        'Correct the tax type/applicability and re-upload on <a href="https://portal.easemygst.com/" target="_blank">EaseMyGST Returns Portal &rarr;</a>'
+      ]
+    },
+    'Note Voucher Number is Invalid': {
+      ico:'&#128221;',
+      steps:[
+        'The Note Voucher Number is invalid in case of <b>Credit Note or Debit Note</b>.',
+        'The Note Voucher Number should be filled with the <b>original Invoice Number</b> it refers to.',
+        'Check and correct the Note Voucher Number in your data sheet.',
+        'Re-upload the corrected file on <a href="https://portal.easemygst.com/" target="_blank">EaseMyGST Returns Portal &rarr;</a>'
+      ]
+    },
+    'Generic Field is Invalid': {
+      ico:'&#9888;',
+      steps:[
+        'One or more generic fields in your return data contain invalid values.',
+        'Check the digits in the invalid field or <b>remove the data</b> available in that field.',
+        'Blank or incorrect data in generic fields will cause upload failures.',
+        'Correct the field and re-upload on <a href="https://portal.easemygst.com/" target="_blank">EaseMyGST Returns Portal &rarr;</a>'
+      ]
+    },
+    'Total Value of HSN Summary is Invalid': {
+      ico:'&#128202;',
+      steps:[
+        'The total value in the HSN Summary is invalid due to a structural error.',
+        '<b>Remove the structural error column</b> from the Excel file.',
+        'After removing the error column, re-upload the corrected Excel file.',
+        'Re-upload on <a href="https://portal.easemygst.com/" target="_blank">EaseMyGST Returns Portal &rarr;</a>'
+      ]
+    },
+    'GSTIN is Invalid': {
+      ico:'&#127970;',
+      steps:[
+        'The GSTIN number provided is invalid for the respective party.',
+        'Check and correct the GSTIN number through the GST Portal: <a href="https://www.gst.gov.in" target="_blank">gst.gov.in &rarr;</a>',
+        'Ensure the GSTIN is active and correctly entered in your data sheet.',
+        'Correct the GSTIN and re-upload on <a href="https://portal.easemygst.com/" target="_blank">EaseMyGST Returns Portal &rarr;</a>'
+      ]
+    },
+    'GSTIN Required for B2B / SEZ Transactions': {
+      ico:'&#128196;',
+      steps:[
+        'GSTIN is mandatory for <b>B2B and SEZ</b> transactions.',
+        'Check the GSTIN number in your data sheet for all B2B/SEZ invoices.',
+        'Also check the <b>Invoice Type</b> &mdash; correct both GSTIN and Invoice Type before re-uploading.',
+        'Re-upload the corrected Excel sheet on <a href="https://portal.easemygst.com/" target="_blank">EaseMyGST Returns Portal &rarr;</a>'
+      ]
+    },
+    'GSTIN Summary is Filed / Draft': {
+      ico:'&#128257;',
+      steps:[
+        'The GSTIN summary is in <b>Draft or Filed</b> state, preventing re-upload.',
+        '<b>Discard the draft</b> for the working GSTIN on the GST Portal.',
+        'After discarding the draft, re-upload the Excel file.',
+        'Re-upload on <a href="https://portal.easemygst.com/" target="_blank">EaseMyGST Returns Portal &rarr;</a>'
+      ]
+    },
+    'Invalid Tax Applicability': {
+      ico:'&#128176;',
+      steps:[
+        'Tax Applicability value in your data is not valid.',
+        'Tax Applicability should be one of: <b>T</b> (Taxable) / <b>N</b> (Nil Rated) / <b>L</b> (Non-GST) as per given transactions.',
+        'Check and update the Tax Applicability column in your data sheet.',
+        'Re-upload the corrected file on <a href="https://portal.easemygst.com/" target="_blank">EaseMyGST Returns Portal &rarr;</a>'
+      ]
+    },
+    'GSTR-1 Filing Error': {
+      ico:'&#128209;',
+      steps:[
+        'Ensure all B2B and B2C invoices are uploaded correctly before filing.',
+        'Check for duplicate invoice numbers &mdash; each must be unique.',
+        'Verify DSC is valid or EVC OTP is received for authentication.',
+        'File from <a href="https://portal.easemygst.com/" target="_blank">EaseMyGST Returns Portal &rarr;</a> using Chrome or Edge browser.'
+      ]
+    },
+    'GSTR-3B Mismatch': {
+      ico:'&#9878;',
+      steps:[
+        'Reconcile GSTR-3B values with GSTR-1 and GSTR-2B before filing.',
+        'ITC in GSTR-3B must not exceed auto-populated GSTR-2B figures.',
+        'Outward supply values must match GSTR-1 data exactly.',
+        'File from <a href="https://portal.easemygst.com/" target="_blank">EaseMyGST Returns Portal &rarr;</a> after reconciliation.'
+      ]
+    },
+  }
+};
+
+// ── MENUS ──
+var MENUS = {
+  einvoice: [
+    { label:'HSN Code Invalid',                    value:'HSN Code Invalid',                    ico:'&#128258;' },
+    { label:'Supplier / Buyer GSTIN Invalid',      value:'Supplier / Buyer GSTIN Invalid',      ico:'&#127970;' },
+    { label:'Duplicate E-Invoice Error',           value:'Duplicate E-Invoice Error',           ico:'&#128257;' },
+    { label:'Incorrect Password',                  value:'Incorrect Password',                  ico:'&#128274;' },
+    { label:'Unable to Login to EaseMyGST',        value:'Unable to Login to EaseMyGST',        ico:'&#128513;' },
+    { label:'Invoice No More Than 16 Digits',      value:'Invoice No More Than 16 Digits',      ico:'&#128290;' },
+    { label:'Pincode Does Not Match State Code',   value:'Pincode Does Not Match State Code',   ico:'&#128205;' },
+    { label:'Ship To Pincode / Address Missing',   value:'Ship To Pincode / Address Missing',   ico:'&#128230;' },
+    { label:'Address More Than 100 Characters',    value:'Address More Than 100 Characters',    ico:'&#128196;' },
+    { label:'API End Point Error',                 value:'API End Point Error',                 ico:'&#9881;'   },
+    { label:'Supplier PIN Code Cannot Be 999999',  value:'Supplier PIN Code Cannot Be 999999',  ico:'&#128203;' },
+    { label:'Invoice Not Visible in E-Invoice Generator', value:'Invoice Not Visible in E-Invoice Generator', ico:'&#128269;' },
+    { label:'Cancel IRN',                          value:'Cancel IRN',                          ico:'&#10060;'  },
+    { label:'Invoice Date More Than 30 Days',      value:'Invoice Date More Than 30 Days',      ico:'&#128197;' }
+  ],
+  ewaybill: [
+    { label:'Invalid JSON / HSN Non-GST',          value:'Invalid JSON / HSN Non-GST',          ico:'&#128203;' },
+    { label:'Transporter ID Invalid',              value:'Transporter ID Invalid',              ico:'&#128667;' },
+    { label:'Cancel E-Way Bill',                   value:'Cancel E-Way Bill',                   ico:'&#128465;' },
+    { label:'Distance Between Pincodes Too High',  value:'Distance Between Pincodes Too High',  ico:'&#128739;' },
+    { label:'Transport Document No Missing (Air/Rail)', value:'Transport Document Number Missing (Air/Rail)', ico:'&#9992;' },
+    { label:'Vehicle Mode Must Be Road',           value:'Vehicle Mode Must Be Road',           ico:'&#128739;' },
+    { label:'E-Way Bill Not Generated',            value:'E-Way Bill Not Generated',            ico:'&#128230;' },
+    { label:'Invoice Not Visible in EWB Generator', value:'Invoice Not Visible in E-Way Bill Generator', ico:'&#128269;' },
+    { label:'EWB Already Generated for this IRN',  value:'E-Way Bill Already Generated for this IRN', ico:'&#128257;' }
+  ],
+  gstreturns: [
+    { label:'OTP Not Receiving',                   value:'OTP Not Receiving',                   ico:'&#128241;' },
+    { label:'Structural Error Duplicate Invoice',  value:'Structural Error Duplicate Invoice',  ico:'&#128202;' },
+    { label:'Invalid HSN',                         value:'Invalid HSN',                         ico:'&#128258;' },
+    { label:'Invalid POS (Place of Supply)',       value:'Invalid POS (Place of Supply)',       ico:'&#128205;' },
+    { label:'Tax Invalid / Tax Mismatch',          value:'Tax Invalid / Tax Mismatch',          ico:'&#128176;' },
+    { label:'GSTR-1 Filing Error',                 value:'GSTR-1 Filing Error',                 ico:'&#128209;' },
+    { label:'GSTR-3B Mismatch',                    value:'GSTR-3B Mismatch',                    ico:'&#9878;'   },
+    { label:'Note Voucher Number is Invalid',       value:'Note Voucher Number is Invalid',       ico:'&#128221;' },
+    { label:'Generic Field is Invalid',             value:'Generic Field is Invalid',             ico:'&#9888;'   },
+    { label:'Total Value of HSN Summary Invalid',   value:'Total Value of HSN Summary is Invalid',ico:'&#128202;' },
+    { label:'GSTIN is Invalid',                     value:'GSTIN is Invalid',                     ico:'&#127970;' },
+    { label:'GSTIN Required for B2B / SEZ',         value:'GSTIN Required for B2B / SEZ Transactions', ico:'&#128196;' },
+    { label:'GSTIN Summary is Filed / Draft',       value:'GSTIN Summary is Filed / Draft',       ico:'&#128257;' },
+    { label:'Invalid Tax Applicability',            value:'Invalid Tax Applicability',            ico:'&#128176;' }
+  ]
+};
+
+var CAT = {
+  einvoice:   'E-Invoice Generation',
+  ewaybill:   'E-Way Bill Generation',
+  gstreturns: 'GST Returns'
+};
+
+// ── UTILS ──
+var wait = function(ms){ return new Promise(function(r){ setTimeout(r,ms); }); };
+
+function addMsg(type, html){
+  return new Promise(function(resolve){
+    var d = document.createElement('div');
+    d.className = 'msg ' + type;
+    d.innerHTML = '<div class="av">'+(type==='b'?'&#129302;':'&#128100;')+'</div><div class="bub">'+html+'</div>';
+    msgsEl.appendChild(d);
+    scrollEl.scrollTop=scrollEl.scrollHeight;
+    setTimeout(resolve, 50);
+  });
+}
+
+function showTyping(){
+  var d = document.createElement('div');
+  d.className='msg b'; d.id='typing';
+  d.innerHTML='<div class="av">&#129302;</div><div class="typing"><span></span><span></span><span></span></div>';
+  msgsEl.appendChild(d); scrollEl.scrollTop=scrollEl.scrollHeight;
+}
+function hideTyping(){ var t=document.getElementById('typing'); if(t) t.remove(); }
+function clearDyn(){ dynEl.innerHTML=''; }
+
+function showOpts(opts, cb){
+  clearDyn();
+  var row=document.createElement('div'); row.className='opt-row';
+  opts.forEach(function(o){
+    var b=document.createElement('button');
+    b.className='obtn'+(o.cls?' '+o.cls:'');
+    b.innerHTML=o.label;
+    b.onclick=function(){ cb(o); };
+    row.appendChild(b);
+  });
+  dynEl.appendChild(row);
+}
+
+function showMulti(items, cb){
+  clearDyn();
+  var wrap=document.createElement('div'); wrap.className='ms-wrap';
+
+  var hint=document.createElement('div'); hint.className='ms-hint';
+  hint.innerHTML='&#9989; Select <b>all issues</b> you are facing, then tap <b>Confirm</b>';
+  wrap.appendChild(hint);
+
+  var grid=document.createElement('div'); grid.className='ms-grid';
+  var selected={};
+
+  // Declare confirmBtn BEFORE forEach so closures reference it correctly
+  var confirmBtn=document.createElement('button');
+  confirmBtn.className='ms-confirm';
+  confirmBtn.textContent='Confirm Selection';
+  confirmBtn.onclick=function(){
+    var vals=Object.keys(selected);
+    if(vals.length>0) cb(vals);
+  };
+
+  items.forEach(function(item){
+    var btn=document.createElement('button'); btn.className='ms-btn';
+    btn.innerHTML='<span class="chk">&#9744;</span><span class="ico">'+item.ico+'</span>'+item.label;
+    btn.onclick=function(){
+      if(selected[item.value]){
+        delete selected[item.value];
+        btn.classList.remove('sel');
+        btn.querySelector('.chk').innerHTML='&#9744;';
+      } else {
+        selected[item.value]=true;
+        btn.classList.add('sel');
+        btn.querySelector('.chk').innerHTML='&#9745;';
+      }
+      var n=Object.keys(selected).length;
+      confirmBtn.classList.toggle('on', n>0);
+      confirmBtn.textContent = n>0 ? 'Confirm ('+n+' selected)' : 'Confirm Selection';
+    };
+    grid.appendChild(btn);
+  });
+  wrap.appendChild(grid);
+
+  var actions=document.createElement('div'); actions.className='ms-actions';
+  var backBtn=document.createElement('button'); backBtn.className='ms-back';
+  backBtn.textContent='\u2190 Back';
+  backBtn.onclick=function(){ clearDyn(); startFlow(); };
+  actions.appendChild(backBtn);
+  actions.appendChild(confirmBtn);
+  wrap.appendChild(actions);
+  dynEl.appendChild(wrap);
+  scrollEl.scrollTop=scrollEl.scrollHeight;
+}
+
+function showSolutions(issues, withBtns){
+  clearDyn();
+  var scroller=document.createElement('div'); scroller.className='sol-scroller';
+  issues.forEach(function(key,i){
+    var sol=SOL[S.category]&&SOL[S.category][key];
+    if(!sol) return;
+    var box=document.createElement('div'); box.className='sol-box';
+    box.innerHTML='<div class="stitle">'+sol.ico+' '+(i+1)+'. '+key+'</div>'+
+      '<ul>'+sol.steps.map(function(s){ return '<li>'+s+'</li>'; }).join('')+'</ul>';
+    scroller.appendChild(box);
+  });
+  dynEl.appendChild(scroller);
+
+  if(withBtns){
+    setTimeout(function(){
+      var note=document.createElement('div');
+      note.style.cssText='padding:2px 13px 5px;font-size:12.5px;color:var(--muted);';
+      note.textContent='Were these solutions helpful?';
+      dynEl.appendChild(note);
+      var row=document.createElement('div'); row.className='opt-row'; row.style.paddingTop='0';
+      [
+        { label:'&#9989; Yes, resolved!',             cls:'green', fn:onResolved },
+        { label:'&#9888;&#65039; Some still pending', cls:'amber', fn:onPending  },
+        { label:'&#127915; Raise Ticket',             cls:'red',   fn:showTicketSection }
+      ].forEach(function(o){
+        var b=document.createElement('button');
+        b.className='obtn '+o.cls; b.innerHTML=o.label; b.onclick=o.fn; row.appendChild(b);
+      });
+      dynEl.appendChild(row);
+      scrollEl.scrollTop=scrollEl.scrollHeight;
+    },300);
+  }
+}
+
+// ── TICKET SECTION ──
+function showTicketSection(){
+  window.open('https://care.ginesys.in','_blank');
+}
+
+// ── FLOW ──
+async function startFlow(){
+  clearDyn();
+  S={ category:'', selectedIssues:[], awaitingKW:false, userMobile:'' };
+  txtIn.disabled=false; sndBtn.disabled=false;
+  showTyping(); await wait(700); hideTyping();
+  await addMsg('b','&#128075; <b>Welcome to EaseMyGST Support!</b><br>I\'m your virtual assistant. Please select your issue category to get started.');
+  forceEnableInput();
+  showOpts([
+    { label:'&#129534; E-Invoice Generation', value:'einvoice'   },
+    { label:'&#128666; E-Way Bill Generation', value:'ewaybill'  },
+    { label:'&#128203; GST Returns',           value:'gstreturns'}
+  ], onCategory);
+}
+
+async function onCategory(opt){
+  S.category=opt.value;
+  clearDyn();
+  await addMsg('u', opt.label);
+  showTyping(); await wait(600); hideTyping();
+  await addMsg('b','Please <b>select all the issues</b> you are facing in <b>'+CAT[opt.value]+'</b>. You can pick multiple.');
+  showMulti(MENUS[opt.value], onIssuesSelected);
+}
+
+async function onIssuesSelected(selected){
+  S.selectedIssues=selected;
+  clearDyn();
+  await addMsg('u','&#128269; '+selected.join(' &bull; '));
+  showTyping(); await wait(800); hideTyping();
+  var msg=selected.length===1
+    ? 'Here is the solution for <b>&ldquo;'+selected[0]+'&rdquo;</b>. Please try the steps below:'
+    : 'You\'ve reported <b>'+selected.length+' issues</b>. Here are solutions &mdash; scroll and try each step:';
+  await addMsg('b', msg);
+  showSolutions(selected, true);
+  forceEnableInput();
+}
+
+async function onResolved(){
+  clearDyn();
+  await addMsg('u','&#9989; Yes, all resolved!');
+  showTyping(); await wait(600); hideTyping();
+  await addMsg('b','&#127881; <b>Great!</b> Glad your issue is resolved. Have a productive day!');
+  forceEnableInput();
+  showOpts([{ label:'&#128260; Start Over', value:'r' }], function(){ msgsEl.innerHTML=''; startFlow(); });
+}
+
+async function onPending(){
+  clearDyn();
+  await addMsg('u','&#9888;&#65039; Some still pending');
+  showTyping(); await wait(700); hideTyping();
+  await addMsg('b','No problem! Please <b>re-select the issues still pending</b> and I\'ll show the solutions again.');
+  forceEnableInput();
+  showMulti(MENUS[S.category], onIssuesSelected);
+}
+
+// ── KEYWORD INPUT ── always enabled throughout all states
+function forceEnableInput(){
+  txtIn.disabled=false;
+  sndBtn.disabled=false;
+  txtIn.placeholder='🔍 Type a keyword anytime to search...';
+  txtIn.style.background='#fff';
+  txtIn.style.color='var(--text)';
+  txtIn.style.cursor='text';
+  sndBtn.style.background='var(--primary)';
+  sndBtn.style.cursor='pointer';
+}
+forceEnableInput();
+
+// Build a flat keyword index from all categories
+function buildKWIndex(){
+  var index=[];
+  Object.keys(MENUS).forEach(function(cat){
+    MENUS[cat].forEach(function(item){
+      index.push({ cat:cat, catLabel:CAT[cat], value:item.value, label:item.label, ico:item.ico });
+    });
+  });
+  return index;
+}
+var KW_INDEX = buildKWIndex();
+
+function searchKeyword(query){
+  var q = query.toLowerCase().trim();
+  if(!q) return [];
+  var words = q.split(/\s+/);
+  return KW_INDEX.filter(function(item){
+    var haystack = (item.label + ' ' + item.value).toLowerCase();
+    return words.some(function(w){ return haystack.indexOf(w) !== -1; });
+  });
+}
+
+async function handleKeywordSearch(query){
+  var trimmed = query.trim();
+  if(!trimmed) return;
+  txtIn.value='';
+  await addMsg('u', '&#128269; ' + trimmed);
+  var results = searchKeyword(trimmed);
+  if(results.length === 0){
+    showTyping(); await wait(600); hideTyping();
+    await addMsg('b','&#128533; No issues found matching <b>"'+trimmed+'"</b>.<br>Try keywords like <b>HSN</b>, <b>GSTIN</b>, <b>password</b>, <b>OTP</b>, <b>pincode</b>, etc., or select a category below.');
+    startFlow();
+    return;
+  }
+  showTyping(); await wait(600); hideTyping();
+  await addMsg('b','&#128269; Found <b>'+results.length+' issue'+(results.length>1?'s':'')+
+    '</b> matching <b>"'+trimmed+'"</b>. Tap an issue to see the solution:');
+  showKWResults(results);
+}
+
+function showKWResults(results){
+  clearDyn();
+  var wrap = document.createElement('div'); wrap.className='kw-results';
+  results.forEach(function(item){
+    var btn=document.createElement('button'); btn.className='kw-match-btn';
+    btn.innerHTML = '<span style="font-size:15px">'+item.ico+'</span>'+
+      '<span style="flex:1">'+item.label+'</span>'+
+      '<span class="kw-cat-tag">'+item.catLabel.split(' ')[0]+'</span>';
+    btn.onclick=function(){
+      var prevCat=S.category;
+      S.category=item.cat;
+      onIssuesSelectedFromKW([item.value]);
+    };
+    wrap.appendChild(btn);
+  });
+  // Back to menu
+  var row=document.createElement('div'); row.className='opt-row'; row.style.paddingTop='6px';
+  var back=document.createElement('button'); back.className='obtn'; back.innerHTML='&#8592; Back to Menu';
+  back.onclick=function(){ msgsEl.innerHTML=''; startFlow(); };
+  row.appendChild(back);
+  wrap.appendChild(row);
+  dynEl.appendChild(wrap);
+  scrollEl.scrollTop=scrollEl.scrollHeight;
+}
+
+async function onIssuesSelectedFromKW(selected){
+  clearDyn();
+  S.selectedIssues=selected;
+  await addMsg('u', selected.map(function(v){ return '&#128269; '+v; }).join(' &bull; '));
+  showTyping(); await wait(800); hideTyping();
+  var msg = 'Here is the solution for <b>&ldquo;'+selected[0]+'&rdquo;</b>. Please try the steps below:';
+  await addMsg('b', msg);
+  showSolutions(selected, true);
+  forceEnableInput();
+}
+
+// Send on click or Enter
+sndBtn.onclick=function(){ handleKeywordSearch(txtIn.value); };
+txtIn.addEventListener('keydown', function(e){
+  if(e.key==='Enter') handleKeywordSearch(txtIn.value);
+});
+
+// ── TOGGLE ──
+window.toggleChat=function(){
+  chatWin.classList.toggle('open');
+};
+
+// ── AUTO OPEN + START ──
+setTimeout(function(){
+  chatWin.classList.add('open');
+  startFlow();
+}, 400);
+
+})();
+</script>
+</body>
+</html>
